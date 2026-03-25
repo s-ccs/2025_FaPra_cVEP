@@ -1,0 +1,10 @@
+0_working_data
+LabRecorder
+openbci_data
+openbcigui_v6.0.0-beta.1_windows64
+temp_data
+cleaned_plotter.py
+lsl_streamer.py
+plotter.py
+README.txt
+unicorn_to_lsl.py

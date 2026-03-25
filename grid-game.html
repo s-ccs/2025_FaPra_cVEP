@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Grid Target Game</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #727272; /* grey background */
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    .wrap {
+      height: 100%;
+      display: grid;
+      place-items: center;
+    }
+    canvas {
+      background: #727272;
+      border: 2px solid #333;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="game" width="660" height="660" aria-label="Grid game canvas"></canvas>
+  </div>
+
+  <script>
+    /**********************
+     * Editable settings  *
+     **********************/
+    let GRID_SIZE = 15;          // <-- Edit this (e.g., 20, 40, 60)
+    const TARGET_COUNT = 3;      // how many red targets exist at once
+    const MOVE_COOLDOWN_MS = 0;  // set >0 if you want to limit manual move speed
+
+    /**********************
+     * Canvas + state      *
+     **********************/
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const state = {
+      score: 0,
+      player: { x: 0, y: 0 },
+      targets: [],
+      autopilotEnabled: false,
+      autopilotTimer: null,
+      lastManualMoveAt: 0,
+
+      // autopilot "human-ish" behavior state
+      preferredDir: null,
+      staleSteps: 0,
+      lastDist: null,
+    };
+
+    function cellSize() {
+      return Math.floor(Math.min(canvas.width, canvas.height) / GRID_SIZE);
+    }
+
+    function centerPlayer() {
+      state.player.x = Math.floor(GRID_SIZE / 2);
+      state.player.y = Math.floor(GRID_SIZE / 2);
+    }
+
+    function randInt(min, maxInclusive) {
+      return Math.floor(Math.random() * (maxInclusive - min + 1)) + min;
+    }
+
+    function inBounds(x, y) {
+      return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE;
+    }
+
+    function sameCell(a, b) {
+      return a.x === b.x && a.y === b.y;
+    }
+
+    function spawnTarget() {
+      // Avoid spawning on player or on another target
+      let t;
+      let tries = 0;
+      do {
+        t = { x: randInt(0, GRID_SIZE - 1), y: randInt(0, GRID_SIZE - 1) };
+        tries++;
+        if (tries > 2000) break;
+      } while (
+        sameCell(t, state.player) ||
+        state.targets.some(tt => sameCell(tt, t))
+      );
+      return t;
+    }
+
+    function ensureTargets() {
+      while (state.targets.length < TARGET_COUNT) {
+        state.targets.push(spawnTarget());
+      }
+    }
+
+    function manhattan(a, b) {
+      return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+    }
+
+    function nearestTarget() {
+      let best = null;
+      let bestD = Infinity;
+      for (const t of state.targets) {
+        const d = manhattan(state.player, t);
+        if (d < bestD) {
+          bestD = d;
+          best = t;
+        }
+      }
+      return best;
+    }
+
+    /**********************
+     * Drawing             *
+     **********************/
+    function draw() {
+      const cs = cellSize();
+      const w = cs * GRID_SIZE;
+      const h = cs * GRID_SIZE;
+
+      // clear
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // draw playfield background
+      ctx.fillStyle = "#e0e0e0";
+      ctx.fillRect(0, 0, w, h);
+
+      // dashed grid lines
+      ctx.save();
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 6]);
+
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        const p = i * cs + 0.5; // crisp lines
+        // vertical
+        ctx.beginPath();
+        ctx.moveTo(p, 0);
+        ctx.lineTo(p, h);
+        ctx.stroke();
+        // horizontal
+        ctx.beginPath();
+        ctx.moveTo(0, p);
+        ctx.lineTo(w, p);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // targets (red circles)
+      for (const t of state.targets) {
+        const cx = t.x * cs + cs / 2;
+        const cy = t.y * cs + cs / 2;
+        const r = cs * 0.32;
+
+        ctx.beginPath();
+        ctx.fillStyle = "#d50000";
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // player (yellow square)
+      const px = state.player.x * cs;
+      const py = state.player.y * cs;
+      ctx.fillStyle = "#143ef1";
+      ctx.fillRect(px + cs * 0.12, py + cs * 0.12, cs * 0.76, cs * 0.76);
+
+      // score text (allowed; does not mention autopilot)
+      ctx.fillStyle = "#111";
+      ctx.font = "16px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      ctx.fillText(`Score: ${state.score}`, 10, 22);
+    }
+
+    /**********************
+     * Movement            *
+     **********************/
+    const DIRS = {
+      w: { dx: 0, dy: -1 },
+      a: { dx: -1, dy: 0 },
+      s: { dx: 0, dy: 1 },
+      d: { dx: 1, dy: 0 },
+    };
+
+    function tryMove(dirKey) {
+      const now = performance.now();
+      if (MOVE_COOLDOWN_MS > 0 && (now - state.lastManualMoveAt) < MOVE_COOLDOWN_MS) {
+        return false;
+      }
+
+      const dir = DIRS[dirKey];
+      if (!dir) return false;
+
+      const nx = state.player.x + dir.dx;
+      const ny = state.player.y + dir.dy;
+      if (!inBounds(nx, ny)) return false;
+
+      state.player.x = nx;
+      state.player.y = ny;
+
+      // consume targets
+      for (let i = state.targets.length - 1; i >= 0; i--) {
+        if (state.targets[i].x === nx && state.targets[i].y === ny) {
+          state.targets.splice(i, 1);
+          state.score += 1;
+        }
+      }
+      ensureTargets();
+
+      state.lastManualMoveAt = now;
+      draw();
+      return true;
+    }
+
+    /**********************
+     * Autopilot behavior  *
+     **********************/
+    function randomDelayMs() {
+      return randInt(3000, 4000); // 3 to 4 seconds
+    }
+
+    function pickAutopilotMove() {
+      const target = nearestTarget();
+      if (!target) return "w";
+
+      const dx = target.x - state.player.x;
+      const dy = target.y - state.player.y;
+
+      const candidates = [];
+      if (dy < 0) candidates.push("w");
+      if (dy > 0) candidates.push("s");
+      if (dx < 0) candidates.push("a");
+      if (dx > 0) candidates.push("d");
+
+      // If already on target cell (rare, but safe), just move randomly.
+      const all = ["w", "a", "s", "d"];
+      if (candidates.length === 0) return all[randInt(0, all.length - 1)];
+
+      // Encourage "streaks": keep preferredDir sometimes if still helpful
+      const preferredStillHelpful = state.preferredDir && candidates.includes(state.preferredDir);
+
+      // Distance tracking to avoid getting stuck forever
+      const distNow = manhattan(state.player, target);
+      if (state.lastDist !== null && distNow >= state.lastDist) {
+        state.staleSteps += 1;
+      } else {
+        state.staleSteps = 0;
+      }
+      state.lastDist = distNow;
+
+      // If we've been stale for a while, force a greedy step
+      const forceGreedy = state.staleSteps >= 3;
+
+      // "Human-ish" randomness: mostly move toward target, sometimes wander
+      const r = Math.random();
+
+      let chosen;
+      if (forceGreedy) {
+        // Choose direction that reduces the bigger component first
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          chosen = dx > 0 ? "d" : (dx < 0 ? "a" : (dy > 0 ? "s" : "w"));
+        } else {
+          chosen = dy > 0 ? "s" : (dy < 0 ? "w" : (dx > 0 ? "d" : "a"));
+        }
+      } else if (preferredStillHelpful && r < 0.55) {
+        chosen = state.preferredDir;
+      } else if (r < 0.82) {
+        // Greedy-ish with slight randomness between candidates
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          const first = dx > 0 ? "d" : "a";
+          const second = dy > 0 ? "s" : "w";
+          chosen = (Math.random() < 0.75 && candidates.includes(first)) ? first : second;
+        } else {
+          const first = dy > 0 ? "s" : "w";
+          const second = dx > 0 ? "d" : "a";
+          chosen = (Math.random() < 0.75 && candidates.includes(first)) ? first : second;
+        }
+        // if second wasn't valid, fall back
+        if (!DIRS[chosen]) chosen = candidates[0];
+      } else {
+        // Wander step: pick any direction, but prefer in-bounds
+        const shuffled = all.slice().sort(() => Math.random() - 0.5);
+        chosen = shuffled[0];
+      }
+
+      // Avoid out-of-bounds by trying alternates
+      const order = [chosen, ...all.filter(d => d !== chosen)];
+      for (const d of order) {
+        const nx = state.player.x + DIRS[d].dx;
+        const ny = state.player.y + DIRS[d].dy;
+        if (inBounds(nx, ny)) {
+          chosen = d;
+          break;
+        }
+      }
+
+      // Update preferredDir occasionally so it forms streaks
+      if (Math.random() < 0.7) state.preferredDir = chosen;
+
+      return chosen;
+    }
+
+    function stopAutopilot() {
+      if (state.autopilotTimer) {
+        clearTimeout(state.autopilotTimer);
+        state.autopilotTimer = null;
+      }
+      state.preferredDir = null;
+      state.staleSteps = 0;
+      state.lastDist = null;
+    }
+
+    function scheduleAutopilotStep() {
+      stopAutopilot(); // clears any prior timer
+      if (!state.autopilotEnabled) return;
+
+      const delay = randomDelayMs();
+      state.autopilotTimer = setTimeout(() => {
+        if (!state.autopilotEnabled) return;
+
+        const dir = pickAutopilotMove();
+        tryMove(dir);
+
+        // reschedule next step
+        scheduleAutopilotStep();
+      }, delay);
+    }
+
+    function toggleAutopilot() {
+      state.autopilotEnabled = !state.autopilotEnabled;
+      if (state.autopilotEnabled) scheduleAutopilotStep();
+      else stopAutopilot();
+    }
+
+    /**********************
+     * Input handling      *
+     **********************/
+    window.addEventListener("keydown", (e) => {
+      const k = e.key.toLowerCase();
+
+      // Toggle with H (no on-screen text about it)
+      if (k === "h") {
+        toggleAutopilot();
+        return;
+      }
+
+      if (k === "w" || k === "a" || k === "s" || k === "d") {
+        // Allow manual moves even when autopilot is on (feels responsive)
+        // If you'd rather disable manual while it's on, just return when enabled.
+        tryMove(k);
+      }
+    });
+
+    /**********************
+     * Init                *
+     **********************/
+    function init() {
+      centerPlayer();
+      state.targets = [];
+      state.score = 0;
+      state.autopilotEnabled = false; // starts OFF
+      stopAutopilot();
+      ensureTargets();
+      draw();
+    }
+
+    init();
+  </script>
+</body>
+</html>
