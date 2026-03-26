@@ -2,9 +2,9 @@
 
 ## Overview
 
-This project is an EEG-based **code-modulated visual evoked potential (c-VEP)** speller and keyboard demonstrator built around the **Dareplane** framework. The purpose of the system is to present a flashing on-screen keyboard, record EEG responses while the user attends to a target key, and decode the attended target using **canonical correlation analysis (CCA)** or related c-VEP decoding methods.
+This project is an EEG-based **code-modulated visual evoked potential (c-VEP)** speller and keyboard demonstrator built around the **[Dareplane](https://github.com/bsdlab/Dareplane)** framework. The purpose of the system is to present a flashing on-screen keyboard, record EEG responses while the user attends to a target key, and decode the attended target using **canonical correlation analysis (CCA)** or related c-VEP decoding methods. [Dold et al., 2025, J. Neural Eng. 22 026029](https://iopscience.iop.org/article/10.1088/1741-2552/adbb20)
 
-The demonstrator is intended as a practical implementation of a c-VEP brain-computer interface pipeline rather than a purely theoretical reproduction. It combines stimulus presentation, EEG acquisition, signal decoding, and optional output of the decoded symbol into a single modular workflow.
+The demonstrator is intended as a practical implementation of a c-VEP brain-computer interface pipeline rather than a purely theoretical reproduction. It combines stimulus presentation, EEG acquisition, signal decoding, and optional output of the decoded symbol into a single modular workflow. [Thielen et al. 2015](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0133797), [Thielen et al. 2021](https://iopscience.iop.org/article/10.1088/1741-2552/abecef)
 
 The setup follows the general c-VEP pipeline described in the Dareplane example system and is informed by the research literature on c-VEP stimulation, Gold code-based target encoding, reconvolution-based template methods, and calibration-efficient decoding.
 
@@ -49,7 +49,7 @@ conda activate dp-cvep
 pip install -r requirements.txt
 ```
 
-5. Install the [LSL Lab Recorder](https://github.com/labstreaminglayer/App-LabRecorder). Make sure it is running on the background.
+5. Install the [LSL Lab Recorder](https://github.com/labstreaminglayer/App-LabRecorder). Make sure it is running on the background. [Kothe et al. 2025](https://direct.mit.edu/imag/article/doi/10.1162/IMAG.a.136/132678/The-lab-streaming-layer-for-synchronized)
 
 
 ## Demo using OpenBCI Headset
