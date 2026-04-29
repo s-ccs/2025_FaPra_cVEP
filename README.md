@@ -63,6 +63,17 @@ pip install -r requirements.txt
 7. Make sure the stream is called "obci_eeg1" and the stream type is set to time series RAW.
 8. Hit begin stream and monitor the data stream in real-time.
 
+## Electrode mapping for the headset
+
+Cz -    n1p
+O2 -    n2p
+Tp8 -   n3p
+FPz -   n4p
+O1 -    n5p
+Oz -    n6p
+Pz -    n7p
+TP7 -   n8p
+
 ## Running the demo
 
 1. Make sure you have the LSL Lab Recorder running.
