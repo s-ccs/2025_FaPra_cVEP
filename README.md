@@ -65,14 +65,14 @@ pip install -r requirements.txt
 
 ## Electrode mapping for the headset
 
-Cz -    n1p
-O2 -    n2p
-Tp8 -   n3p
-FPz -   n4p
-O1 -    n5p
-Oz -    n6p
-Pz -    n7p
-TP7 -   n8p
+- Cz -    n1p
+- O2 -    n2p
+- TP8 -   n3p
+- FPz -   n4p
+- O1 -    n5p
+- Oz -    n6p
+- Pz -    n7p
+- TP7 -   n8p
 
 ## Running the demo
 
