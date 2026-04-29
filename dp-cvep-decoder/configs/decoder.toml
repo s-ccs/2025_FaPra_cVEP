@@ -18,7 +18,7 @@ data_root = "C:\\Users\\saman\\Desktop\\EEG_Lab_5\\cvep_speller_env\\data"
 training_files_glob = "sub-P001_ses-S001*.xdf"
 selected_channels = [0, 1, 2, 3, 4, 5, 6, 7,]
 capfile = ""
-target_freq_hz = 120
+target_freq_hz = 60
 passband_hz = [ 6, 40,]
 
 [decoder]
