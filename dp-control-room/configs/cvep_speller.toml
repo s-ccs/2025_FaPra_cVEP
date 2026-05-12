@@ -1,0 +1,61 @@
+
+
+[python]
+modules_root = '../'                                                            
+
+
+# -------------------- c-VEP Decoder  ---------------------------------------
+[python.modules.dp-cvep-decoder]                                        
+    type = 'decoding'
+    port = 8083
+    ip = '127.0.0.1'
+
+# -------------------- Controller  ----------------------------------------- 
+[python.modules.dp-cvep-speller]                                     
+    type = 'paradigm'
+    port = 8084
+    ip = '127.0.0.1'
+    retry_connection_after_s = 5  # Module start-up is very slow due to psychopy
+
+# -------------------- LSL recording -----------------------------------------
+[python.modules.dp-lsl-recording]                                      
+    type = 'recording'
+    port = 8082                                                                 
+    ip = '127.0.0.1'
+
+
+[macros]
+
+[macros.run_training]
+    name = 'RUN TRAINING'
+    description = 'Start the recording of training data'
+[macros.run_training.default_json]
+    fname = 'sub-P001_ses-S001_run-001_task-training'
+    data_root = 'C:\Users\saman\Desktop\EEG_Lab_5\cvep_speller_env\data'
+    delay_s = 0.5                  # delay inbetween commands -> time for LSL recorder to respond
+[macros.run_training.cmds]
+    # [<target_module>, <PCOMM>, <kwarg_name1 (optional)>, <kwarg_name2 (optional)>]
+    com1 = ['dp-lsl-recording', 'UPDATE']
+    com2 = ['dp-lsl-recording', 'SELECT_ALL']
+    com3 = ['dp-lsl-recording', 'SET_SAVE_PATH', 'fname=fname', 'data_root=data_root']
+    com4 = ['dp-lsl-recording', 'RECORD']
+
+[macros.stop_streaming]
+    name = 'STOP LSL RECORDING'
+    description = 'Stop the recording'
+[macros.stop_streaming.cmds]
+    com1 = ['dp-lsl-recording', 'STOPRECORD']
+
+[macros.run_online]
+    name = 'RUN ONLINE'
+    description = 'Start the recording of online data'
+[macros.run_online.default_json]
+    fname = 'sub-P001_ses-S001_run-001_task-online'
+    data_root = 'C:\Users\saman\Desktop\EEG_Lab_5\cvep_speller_env\data' 
+[macros.run_online.cmds]
+    # [<target_module>, <PCOMM>, <kwarg_name1 (optional)>, <kwarg_name2 (optional)>]
+    com1 = ['dp-lsl-recording', 'UPDATE']
+    com2 = ['dp-lsl-recording', 'SELECT_ALL']
+    com3 = ['dp-lsl-recording', 'SET_SAVE_PATH', 'fname=fname', 'data_root=data_root']
+    com4 = ['dp-lsl-recording', 'RECORD']
+    com5 = ['dp-cvep-decoder', 'DECODE ONLINE']
